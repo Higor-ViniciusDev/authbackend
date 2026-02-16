@@ -1,10 +1,11 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
+	"github.com/Higor-ViniciusDev/auth/configuration/rest_err"
 	user_usecase "github.com/Higor-ViniciusDev/auth/internal/usecase/user"
 )
 
@@ -23,7 +24,36 @@ func (h *AuthLoginHandler) Autenticacao(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "JSON inválido", http.StatusBadRequest)
 		return
 	}
+	ctx := context.Background()
+	errInternal := h.userUseCase.Validation(ctx, dto)
 
-	w.Write([]byte(fmt.Sprintf("Login: %v | Senha: %v", dto.Email, dto.Password)))
+	if errInternal != nil {
+		restErro := rest_err.ConvertInternalErrorToRestError(errInternal)
+		w.WriteHeader(restErro.Code)
+		json.NewEncoder(w).Encode(restErro)
+		return
+	}
 
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode([]byte("ola mundo"))
+}
+
+func (h *AuthLoginHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var dto user_usecase.CreateUserDTO
+
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		http.Error(w, "JSON inválido", http.StatusBadRequest)
+		return
+	}
+	ctx := context.Background()
+	errInternal := h.userUseCase.Create(ctx, dto)
+
+	if errInternal != nil {
+		restErro := rest_err.ConvertInternalErrorToRestError(errInternal)
+		w.WriteHeader(restErro.Code)
+		json.NewEncoder(w).Encode(restErro)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 }

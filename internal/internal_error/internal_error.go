@@ -43,3 +43,10 @@ func NewUnauthorizedAccess(menssage string) *InternalError {
 		Err:     "unauthorized",
 	}
 }
+
+func NewUnauthorizedEmailAlreadyExists(message string) *InternalError {
+	return &InternalError{
+		Message: message,
+		Err:     "unauthorized_email_already_exists",
+	}
+}

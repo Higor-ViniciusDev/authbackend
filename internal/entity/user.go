@@ -38,6 +38,10 @@ func (u *User) GetPassword() string {
 	return u.password
 }
 
+func (u *User) SetID(id uuid.UUID) {
+	u.id = id
+}
+
 func (u *User) SetName(name string) {
 	u.name = name
 }
@@ -50,9 +54,10 @@ func (u *User) SetPassword(password string) {
 	u.password = password
 }
 
-type UserRepository interface {
-	Create(ctx context.Context, user User) *internal_error.InternalError
+type UserRepositoryInterface interface {
+	Create(ctx context.Context, user *User) *internal_error.InternalError
 	Delete(ctx context.Context, id string) *internal_error.InternalError
 	Validation(ctx context.Context, email string, password string) *internal_error.InternalError
 	List(ctx context.Context) ([]User, *internal_error.InternalError)
+	ValidationEmailAlreadyExists(ctx context.Context, email string) *internal_error.InternalError
 }

@@ -40,16 +40,18 @@ func (w WebServer) RegistrarRota(caminho string, handlerFunc http.HandlerFunc, m
 func (w WebServer) IniciarWebServer() {
 	for rota, handlers := range w.Handlers {
 		for _, infoHandle := range handlers {
-			// Começa com o handler base
 			var handler http.Handler = infoHandle.Handler
 
-			// Aplica os middlewares em ordem reversa (último registrado é o primeiro a executar)
 			for i := len(infoHandle.Middlewares) - 1; i >= 0; i-- {
 				handler = infoHandle.Middlewares[i](handler)
 			}
 
-			// Registra a rota com os middlewares aplicados
 			w.Rotas.Method(infoHandle.Metodo, rota, handler)
+
+			//Adaptador for handler
+			w.Rotas.Options(rota, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				handler.ServeHTTP(w, r)
+			}))
 			logger.Info(fmt.Sprintf("Registrando na rota %v com o metodo %v", rota, infoHandle.Metodo))
 		}
 	}

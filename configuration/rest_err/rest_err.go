@@ -1,70 +1,94 @@
 package rest_err
 
-// import (
-// 	"net/http"
-// )
+import (
+	"net/http"
 
-// type RestErr struct {
-// 	Message string   `json:"message"`
-// 	Err     string   `json:"err"`
-// 	Code    int      `json:"code"`
-// 	Causes  []Causes `json:"causes"`
-// }
+	"github.com/Higor-ViniciusDev/auth/internal/internal_error"
+)
 
-// type Causes struct {
-// 	Field   string `json:"field"`
-// 	Message string `json:"message"`
-// }
+type RestErr struct {
+	Message string   `json:"message"`
+	Err     string   `json:"err"`
+	Code    int      `json:"code"`
+	Causes  []Causes `json:"causes"`
+}
 
-// func (r *RestErr) Error() string {
-// 	return r.Message
-// }
+type Causes struct {
+	Field   string `json:"field"`
+	Message string `json:"message"`
+}
 
-// func ConvertInternalErrorToRestError(err *internal_error.InternalError) *RestErr {
-// 	switch err.Err {
-// 	case "bad_request":
-// 		return NewBadRequestError(err.Error())
-// 	case "not_found":
-// 		return NewNotFoundError(err.Error())
-// 	case "many_request":
-// 		return NewManyRequestError(err.Error())
-// 	default:
-// 		return NewInternalServerError(err.Error())
-// 	}
-// }
+func (r *RestErr) Error() string {
+	return r.Message
+}
 
-// func NewInternalServerError(message string) *RestErr {
-// 	return &RestErr{
-// 		Message: message,
-// 		Err:     "internal_server",
-// 		Code:    http.StatusInternalServerError,
-// 		Causes:  nil,
-// 	}
-// }
+func ConvertInternalErrorToRestError(err *internal_error.InternalError) *RestErr {
+	switch err.Err {
+	case "bad_request":
+		return NewBadRequestError(err.Error())
+	case "not_found":
+		return NewNotFoundError(err.Error())
+	case "many_request":
+		return NewManyRequestError(err.Error())
+	case "unauthorized":
+		return NewUnauthorizedError(err.Error())
+	case "unauthorized_email_already_exists":
+		return NewUnauthorizedEmailAlreadyExists(err.Error())
+	default:
+		return NewInternalServerError(err.Error())
+	}
+}
 
-// func NewBadRequestError(message string, causes ...Causes) *RestErr {
-// 	return &RestErr{
-// 		Message: message,
-// 		Err:     "bad_request",
-// 		Code:    http.StatusBadRequest,
-// 		Causes:  nil,
-// 	}
-// }
+func NewInternalServerError(message string) *RestErr {
+	return &RestErr{
+		Message: message,
+		Err:     "internal_server",
+		Code:    http.StatusInternalServerError,
+		Causes:  nil,
+	}
+}
 
-// func NewNotFoundError(message string) *RestErr {
-// 	return &RestErr{
-// 		Message: message,
-// 		Err:     "not_found",
-// 		Code:    http.StatusNotFound,
-// 		Causes:  nil,
-// 	}
-// }
+func NewBadRequestError(message string, causes ...Causes) *RestErr {
+	return &RestErr{
+		Message: message,
+		Err:     "bad_request",
+		Code:    http.StatusBadRequest,
+		Causes:  nil,
+	}
+}
 
-// func NewManyRequestError(message string) *RestErr {
-// 	return &RestErr{
-// 		Message: message,
-// 		Err:     "many_request",
-// 		Code:    http.StatusTooManyRequests,
-// 		Causes:  nil,
-// 	}
-// }
+func NewNotFoundError(message string) *RestErr {
+	return &RestErr{
+		Message: message,
+		Err:     "not_found",
+		Code:    http.StatusNotFound,
+		Causes:  nil,
+	}
+}
+
+func NewManyRequestError(message string) *RestErr {
+	return &RestErr{
+		Message: message,
+		Err:     "many_request",
+		Code:    http.StatusTooManyRequests,
+		Causes:  nil,
+	}
+}
+
+func NewUnauthorizedError(message string) *RestErr {
+	return &RestErr{
+		Message: message,
+		Err:     "unauthorized",
+		Code:    http.StatusUnauthorized,
+		Causes:  nil,
+	}
+}
+
+func NewUnauthorizedEmailAlreadyExists(message string) *RestErr {
+	return &RestErr{
+		Message: message,
+		Err:     "unauthorized_email_already_exists",
+		Code:    http.StatusConflict,
+		Causes:  nil,
+	}
+}
