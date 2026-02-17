@@ -6,6 +6,7 @@ import (
 
 	"github.com/Higor-ViniciusDev/auth/configuration/database"
 	"github.com/Higor-ViniciusDev/auth/configuration/logger"
+	"github.com/Higor-ViniciusDev/auth/internal/entity"
 	"github.com/Higor-ViniciusDev/auth/internal/infra/api/controller"
 	"github.com/Higor-ViniciusDev/auth/internal/infra/api/web"
 	handlers "github.com/Higor-ViniciusDev/auth/internal/infra/events/handler"
@@ -27,17 +28,20 @@ func main() {
 	if webServerPort == "" {
 		webServerPort = "8080"
 	}
+	//Injection token
+	token := entity.NewToken()
+
 	//Injection rabbitmq
 	rabbitMqCanal, _ := rabbitmq.OpenChannel()
-	userHandler := handlers.NewCreateuserHandler(rabbitMqCanal)
+	createdHandlerEvent := handlers.NewCreateuserHandler(rabbitMqCanal)
 
 	eventorDisparador := events.NewEventDispatcher()
-	eventorDisparador.RegistrarHandler("UserCreated", userHandler)
+	eventorDisparador.RegistrarHandler("UserCreated", createdHandlerEvent)
 
 	//Injection
 	db := database.NewConnect()
 	userRepo := repository.NewUserRepository(db)
-	usecase := user_usecase.NewUserUseCase(userRepo, eventorDisparador)
+	usecase := user_usecase.NewUserUseCase(userRepo, eventorDisparador, token)
 	authHandler := controller.NewAuthLoginHandler(usecase)
 
 	webServer := web.NovoWebServer(fmt.Sprintf(":%v", webServerPort))

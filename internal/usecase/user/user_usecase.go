@@ -12,6 +12,7 @@ import (
 type UserUseCase struct {
 	userRepo        entity.UserRepositoryInterface
 	EventDispatched events.EventDispachtInterface
+	Token           entity.TokenInterface
 }
 
 type CreateUserDTO struct {
@@ -29,10 +30,16 @@ type UserOutputValidationDTO struct {
 	Token string `json:"token"`
 }
 
-func NewUserUseCase(userRepo entity.UserRepositoryInterface, DisparadorEvento events.EventDispachtInterface) *UserUseCase {
+type UserSendEmailConfirmationDTO struct {
+	Email string `json:"email"`
+	Token string `json:"token"`
+}
+
+func NewUserUseCase(userRepo entity.UserRepositoryInterface, DisparadorEvento events.EventDispachtInterface, token entity.TokenInterface) *UserUseCase {
 	return &UserUseCase{
 		userRepo:        userRepo,
 		EventDispatched: DisparadorEvento,
+		Token:           token,
 	}
 }
 
@@ -42,14 +49,31 @@ func (u *UserUseCase) Create(ctx context.Context, dto CreateUserDTO) *internal_e
 	user.SetEmail(dto.Email)
 	user.SetPassword(dto.Password)
 
-	retorno := u.userRepo.Create(ctx, user)
+	// if err := u.userRepo.ValidationEmailAlreadyExists(ctx, user.GetEmail()); err != nil {
+	// 	return err
+	// }
 
-	if retorno != nil {
-		return retorno
+	// retorno := u.userRepo.Create(ctx, user)
+
+	// if retorno != nil {
+	// 	return retorno
+	// }
+
+	tokenBody := entity.NewTokenBody(user.GetID())
+	tokenString, err := u.Token.GenerateToken(tokenBody)
+
+	if err != nil {
+		return err
+	}
+
+	dtoEmail := &UserSendEmailConfirmationDTO{
+		Email: user.GetEmail(),
+		Token: tokenString,
 	}
 
 	newUserCreatedEvent := events_internal.NewUserCreated()
-	newUserCreatedEvent.SetPayload(dto.Email)
+	newUserCreatedEvent.SetPayload(dtoEmail)
+
 	u.EventDispatched.Dispatch(newUserCreatedEvent)
 	return nil
 }

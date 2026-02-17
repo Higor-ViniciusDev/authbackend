@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"sync"
 
 	"github.com/Higor-ViniciusDev/auth/configuration/logger"
@@ -23,7 +22,6 @@ func NewCreateuserHandler(rabbitMQChannel *amqp.Channel) *UserCreateHandler {
 func (h *UserCreateHandler) Handle(event events.EventInterface, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	logger.Info(fmt.Sprintf("User criada: %v", event.GetPayload()))
 	jsonOutput, _ := json.Marshal(event.GetPayload())
 
 	msgRabbitmq := amqp.Publishing{
@@ -31,11 +29,15 @@ func (h *UserCreateHandler) Handle(event events.EventInterface, wg *sync.WaitGro
 		Body:        jsonOutput,
 	}
 
-	h.RabbitMQChannel.Publish(
+	err := h.RabbitMQChannel.Publish(
 		"amq.direct", // exchange
 		"",           // key name
 		false,        // mandatory
 		false,        // immediate
 		msgRabbitmq,  // message to publish
 	)
+
+	if err != nil {
+		logger.Error("Erro ao publicar evento no RabbitMQ", err)
+	}
 }

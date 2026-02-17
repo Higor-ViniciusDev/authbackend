@@ -22,10 +22,6 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 
 func (r *UserRepository) Create(ctx context.Context, user *entity.User) *internal_error.InternalError {
 
-	if err := r.ValidationEmailAlreadyExists(ctx, user.GetEmail()); err != nil {
-		return err
-	}
-
 	query := `INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3)`
 
 	//convert senha 256
