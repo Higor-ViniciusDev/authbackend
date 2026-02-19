@@ -1,17 +1,21 @@
-FROM golang:1.24-alpine
+FROM golang:1.24 AS builder
 
 WORKDIR /appauth
-
-# Install dependencies needed for CGO if necessary (though go-pg usually doesn't need it)
-RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-RUN go build -o /usr/local/bin/auth-backend ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o auth-backend ./cmd/api
+
+FROM debian:stretch-slim
+
+WORKDIR /appauth
+
+COPY --from=builder /appauth/auth-backend .
 
 EXPOSE 8080
 
-CMD ["auth-backend"]
+CMD ["./auth-backend"]
