@@ -1,14 +1,4 @@
 services:
-  # auth-backend:
-  #   build:
-  #     context: .
-  #   ports:
-  #     - "8080:8080"
-  #   volumes:
-  #     - .:/appauth
-  #   depends_on:
-  #     - postgres
-
   postgres:
     image: postgres:17-alpine
     container_name: postgres

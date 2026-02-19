@@ -11,6 +11,7 @@ type RestErr struct {
 	Err     string   `json:"err"`
 	Code    int      `json:"code"`
 	Causes  []Causes `json:"causes"`
+	Pedente string   `json:"status"`
 }
 
 type Causes struct {
@@ -34,6 +35,8 @@ func ConvertInternalErrorToRestError(err *internal_error.InternalError) *RestErr
 		return NewUnauthorizedError(err.Error())
 	case "unauthorized_email_already_exists":
 		return NewUnauthorizedEmailAlreadyExists(err.Error())
+	case "unauthorized_email_not_verified":
+		return NewUnauthorizedEmailNotVerified(err.Error())
 	default:
 		return NewInternalServerError(err.Error())
 	}
@@ -90,5 +93,15 @@ func NewUnauthorizedEmailAlreadyExists(message string) *RestErr {
 		Err:     "unauthorized_email_already_exists",
 		Code:    http.StatusConflict,
 		Causes:  nil,
+	}
+}
+
+func NewUnauthorizedEmailNotVerified(message string) *RestErr {
+	return &RestErr{
+		Message: message,
+		Err:     "unauthorized_email_not_verified",
+		Code:    http.StatusForbidden,
+		Causes:  nil,
+		Pedente: "pending",
 	}
 }

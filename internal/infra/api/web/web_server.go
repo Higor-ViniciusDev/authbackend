@@ -48,18 +48,18 @@ func (w WebServer) IniciarWebServer() {
 
 			w.Rotas.Method(infoHandle.Metodo, rota, handler)
 
-			//Adaptador for handler
+			//adapter for handler
 			w.Rotas.Options(rota, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				handler.ServeHTTP(w, r)
 			}))
-			logger.Info(fmt.Sprintf("Registrando na rota %v com o metodo %v", rota, infoHandle.Metodo))
+			logger.Info(fmt.Sprintf("registering route %v with method %v", rota, infoHandle.Metodo))
 		}
 	}
 
-	logger.Info(fmt.Sprintf("iniciando servidor na porta %v", w.Porta))
+	logger.Info(fmt.Sprintf("starting server on port %v", w.Porta))
 	err := http.ListenAndServe(w.Porta, w.Rotas)
 
 	if err != nil {
-		logger.Error("Error ao iniciar webserver", err)
+		logger.Error("error starting webserver", err)
 	}
 }

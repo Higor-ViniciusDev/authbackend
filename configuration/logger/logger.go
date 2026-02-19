@@ -29,8 +29,8 @@ func init() {
 	logNovo, err := loadconfig.Build()
 
 	if err != nil {
-		fmt.Println("error iniciar logger ", err.Error())
-		panic("Error ao iniciar o logger")
+		fmt.Println("error starting logger ", err.Error())
+		panic("error starting the logger")
 	}
 
 	log = logNovo

@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"time"
 
 	"github.com/Higor-ViniciusDev/auth/configuration/logger"
 	"github.com/Higor-ViniciusDev/auth/internal/entity"
@@ -16,19 +17,26 @@ type UserRepository struct {
 	db *sql.DB
 }
 
+type UserPG struct {
+	ID           string    `json:"id"`
+	Name         string    `json:"name"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"password_hash"`
+	Verified     bool      `json:"verified"`
+	VerifiedAt   time.Time `json:"verified_at"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
 func NewUserRepository(db *sql.DB) *UserRepository {
 	return &UserRepository{db: db}
 }
 
 func (r *UserRepository) Create(ctx context.Context, user *entity.User) *internal_error.InternalError {
-
-	query := `INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3)`
-
-	//convert senha 256
 	hash := sha256.Sum256([]byte(user.GetPassword()))
 	hashString := hex.EncodeToString(hash[:])
 
-	_, err := r.db.ExecContext(ctx, query, user.GetName(), user.GetEmail(), hashString)
+	query := `INSERT INTO users (id, name, email, password_hash) VALUES ($1, $2, $3, $4)`
+	_, err := r.db.ExecContext(ctx, query, user.GetID().String(), user.GetName(), user.GetEmail(), hashString)
 	if err != nil {
 		logger.Error("Error creating user: ", err)
 		return internal_error.NewInternalServerError("Error creating user")
@@ -46,28 +54,37 @@ func (r *UserRepository) Delete(ctx context.Context, id string) *internal_error.
 	return nil
 }
 
-func (r *UserRepository) Validation(ctx context.Context, email string, password string) *internal_error.InternalError {
-	query := `SELECT id, name, email, password FROM users WHERE email = $1 AND password = $2`
+func (r *UserRepository) Validation(ctx context.Context, email string, password string) (*entity.User, *internal_error.InternalError) {
+	hash := sha256.Sum256([]byte(password))
+	hashString := hex.EncodeToString(hash[:])
 
-	row := r.db.QueryRowContext(ctx, query, email, password)
+	query := `SELECT id,verified,name,email,password_hash,verified_at,created_at FROM users WHERE email = $1 AND password_hash = $2`
+	row := r.db.QueryRowContext(ctx, query, email, hashString)
 
-	var id uuid.UUID
-	var name, userEmail, userPassword string
-
-	err := row.Scan(&id, &name, &userEmail, &userPassword)
-	if err != nil {
+	var userPG UserPG
+	if err := row.Scan(&userPG.ID, &userPG.Verified, &userPG.Name, &userPG.Email, &userPG.PasswordHash, &userPG.VerifiedAt, &userPG.CreatedAt); err != nil {
 		if err == sql.ErrNoRows {
-			return internal_error.NewUnauthorizedAccess("Email or password incorrect")
+			return nil, internal_error.NewUnauthorizedAccess("Email or password incorrect")
 		}
 		logger.Error("Error validating user: ", err)
-		return internal_error.NewInternalServerError("Error validating user")
+		return nil, internal_error.NewInternalServerError("Error validating user")
 	}
 
-	return nil
+	if !userPG.Verified {
+		return nil, internal_error.NewUnauthorizedEmailNotVerified("Email not verified")
+	}
+
+	var userRetorno = &entity.User{}
+	userRetorno.SetID(uuid.MustParse(userPG.ID))
+	userRetorno.SetName(userPG.Name)
+	userRetorno.SetEmail(userPG.Email)
+	userRetorno.SetPassword(userPG.PasswordHash)
+	userRetorno.SetVerified(userPG.Verified)
+	return userRetorno, nil
 }
 
 func (r *UserRepository) List(ctx context.Context) ([]entity.User, *internal_error.InternalError) {
-	query := `SELECT id, name, email, password FROM users`
+	query := `SELECT id, name, email FROM users`
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		logger.Error("Error listing users: ", err)
@@ -78,33 +95,22 @@ func (r *UserRepository) List(ctx context.Context) ([]entity.User, *internal_err
 	var users []entity.User
 	for rows.Next() {
 		var id uuid.UUID
-		var name, email, password string
-
-		if err := rows.Scan(&id, &name, &email, &password); err != nil {
+		var name, email string
+		if err := rows.Scan(&id, &name, &email); err != nil {
 			logger.Error("Error scanning user: ", err)
 			continue
 		}
-
 		user := entity.NewUser()
 		user.SetID(id)
 		user.SetName(name)
 		user.SetEmail(email)
-		user.SetPassword(password)
-
 		users = append(users, *user)
 	}
-
-	if err := rows.Err(); err != nil {
-		logger.Error("Error iterating users: ", err)
-		return nil, internal_error.NewInternalServerError("Error iterating users")
-	}
-
 	return users, nil
 }
 
 func (r *UserRepository) ValidationEmailAlreadyExists(ctx context.Context, email string) *internal_error.InternalError {
 	query := `SELECT id FROM users WHERE email = $1`
-
 	row := r.db.QueryRowContext(ctx, query, email)
 	var id string
 	_ = row.Scan(&id)
@@ -112,4 +118,41 @@ func (r *UserRepository) ValidationEmailAlreadyExists(ctx context.Context, email
 		return internal_error.NewUnauthorizedEmailAlreadyExists("Email already exists")
 	}
 	return nil
+}
+
+func (r *UserRepository) MarkVerified(ctx context.Context, id uuid.UUID) (string, *internal_error.InternalError) {
+	query := `UPDATE users SET verified = true, verified_at = NOW() WHERE id = $1 AND verified = false RETURNING email`
+	row := r.db.QueryRowContext(ctx, query, id)
+
+	var email string
+	if err := row.Scan(&email); err != nil {
+		if err == sql.ErrNoRows {
+			return "", internal_error.NewBadRequestError("email already verified or user not found")
+		}
+		logger.Error("Error marking user as verified: ", err)
+		return "", internal_error.NewInternalServerError("Error marking user as verified")
+	}
+
+	return email, nil
+}
+
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*entity.User, *internal_error.InternalError) {
+	query := `SELECT id, name, email FROM users WHERE email = $1`
+	row := r.db.QueryRowContext(ctx, query, email)
+
+	var id uuid.UUID
+	var name, userEmail string
+	if err := row.Scan(&id, &name, &userEmail); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // not found — not an error (security)
+		}
+		logger.Error("Error finding user by email: ", err)
+		return nil, internal_error.NewInternalServerError("Error finding user")
+	}
+
+	user := entity.NewUser()
+	user.SetID(id)
+	user.SetName(name)
+	user.SetEmail(userEmail)
+	return user, nil
 }

@@ -50,3 +50,10 @@ func NewUnauthorizedEmailAlreadyExists(message string) *InternalError {
 		Err:     "unauthorized_email_already_exists",
 	}
 }
+
+func NewUnauthorizedEmailNotVerified(message string) *InternalError {
+	return &InternalError{
+		Message: message,
+		Err:     "unauthorized_email_not_verified",
+	}
+}

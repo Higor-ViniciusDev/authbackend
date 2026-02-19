@@ -12,10 +12,29 @@ spec:
       labels:
         app: auth-backend
     spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z postgres 5432; do echo waiting for postgres; sleep 3; done;",
+            ]
+
+        - name: wait-for-rabbitmq
+          image: busybox
+          command:
+            [
+              "sh",
+              "-c",
+              "until nc -z rabbitmq 5672; do echo waiting for rabbitmq; sleep 3; done;",
+            ]
+
       containers:
         - name: auth-backend
-          image: auth-backend:latest
-          imagePullPolicy: Never
+          image: higordeveloper/authbackend:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8080
           env:

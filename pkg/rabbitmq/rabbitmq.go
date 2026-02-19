@@ -5,10 +5,7 @@ import (
 )
 
 func OpenChannel() (*amqp.Channel, error) {
-	//Conecta ao RabbitMQ server na porta 5672
-	// com o usuário guest e senha guest
-	// Certifique-se de que o RabbitMQ está rodando e acessível
-	amqpConn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+	amqpConn, err := amqp.Dial("amqp://guest:guest@rabbitmq:5672/")
 	if err != nil {
 		return nil, err
 	}
@@ -21,31 +18,87 @@ func OpenChannel() (*amqp.Channel, error) {
 	return channel, nil
 }
 
-func Consumer(ch *amqp.Channel, out chan amqp.Delivery) error {
-	// Inicia a escuta na fila e retorna um canal de mensagens recebidas
-	msgs, err := ch.Consume(
-		"minhaFila",   // Nome da fila
-		"go-consumer", // Consumer tag (pode ser vazio)
-		false,         // Auto-acknowledge - Dar baixa na mensagem automaticamente e já pode remover da fila
-		false,         // Exclusivo - Não exclusivo para este consumidor
-		false,         // Não compartilhar com outros consumidores
-		false,         // Não esperar confirmação de entrega
-		nil,           // Argumentos adicionais - pode ser nil
+func SetupEmailPendingQueue(ch *amqp.Channel) error {
+	_, err := ch.QueueDeclare(
+		"email.pending",
+		true,
+		false,
+		false,
+		false,
+		amqp.Table{
+			"x-message-ttl": int32(43200000), // TTL 12h em ms
+		},
 	)
+	return err
+}
 
+// SetupEmailVerifiedExchange declares the email.verified exchange as fanout (idempotent).
+func SetupEmailVerifiedExchange(ch *amqp.Channel) error {
+	return ch.ExchangeDeclare(
+		"email.verified",
+		"fanout",
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+}
+
+// SetupPodQueue creates an exclusive queue for this pod and binds it to email.verified exchange.
+func SetupPodQueue(ch *amqp.Channel) (string, error) {
+	// empty name = RabbitMQ generates a unique name per pod
+	q, err := ch.QueueDeclare(
+		"",
+		false,
+		false,
+		true,
+		false,
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	// binds the queue to the fanout exchange
+	err = ch.QueueBind(
+		q.Name,
+		"",
+		"email.verified",
+		false,
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+
+	return q.Name, nil
+}
+
+// Simples consumer
+func Consumer(ch *amqp.Channel, queueName string, out chan amqp.Delivery) error {
+	msgs, err := ch.Consume(
+		queueName,
+		"",
+		false,
+		false,
+		false,
+		false,
+		nil,
+	)
 	if err != nil {
 		return err
 	}
 
 	for msg := range msgs {
-		out <- msg // Envia a mensagem recebida para o canal de saída
+		out <- msg
 	}
 
 	return nil
 }
 
 func Publish(ch *amqp.Channel, body string, exName string) error {
-	err := ch.Publish(
+	return ch.Publish(
 		exName,
 		"",
 		false,
@@ -55,10 +108,4 @@ func Publish(ch *amqp.Channel, body string, exName string) error {
 			Body:        []byte(body),
 		},
 	)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }

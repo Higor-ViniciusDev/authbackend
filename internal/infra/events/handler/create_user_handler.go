@@ -30,14 +30,14 @@ func (h *UserCreateHandler) Handle(event events.EventInterface, wg *sync.WaitGro
 	}
 
 	err := h.RabbitMQChannel.Publish(
-		"amq.direct", // exchange
-		"",           // key name
-		false,        // mandatory
-		false,        // immediate
-		msgRabbitmq,  // message to publish
+		"",
+		"email.pending",
+		false,
+		false,
+		msgRabbitmq,
 	)
 
 	if err != nil {
-		logger.Error("Erro ao publicar evento no RabbitMQ", err)
+		logger.Error("error publishing event to RabbitMQ", err)
 	}
 }
